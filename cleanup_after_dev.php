@@ -1,4 +1,4 @@
-<?php //// VERSION:1.0.1
+<?php //// VERSION:1.0.2
 
 error_reporting(E_ALL);
 ini_set('display_errors',1);
@@ -79,14 +79,22 @@ class Updater
     public function handleRoute()
     {
         if (isset($_GET['r']) and $_GET['r'] == 'update') {
-            print 'running update';
+            if (is_writeable(__FILE__)) {
+                $contents = file_get_contents($this->git . '?r=' . mt_rand());
+                file_put_contents(__FILE__, $contents);
+                $tmp = explode('?', $_SERVER['REQUEST_URI']);
+                header("Location: " . $tmp[0]);
+            } else {
+                print "Can't write to file " . htmlspecialchars(__FILE__);
+            }
             exit;
         }
     }
 
     public function getUpdateUrl()
     {
-        return $_SERVER['REQUEST_URI'] . '?r=update';
+        $tmp = explode('?', $_SERVER['REQUEST_URI']);
+        return $tmp[0] . '?r=update';
     }
 
     public function getVersionFromFile($file)
@@ -113,15 +121,15 @@ class Updater
             } elseif (@$version1[$i] < @$version2[$i]) {
                 return -1;
             }
-            return 0;
         }
+        return 0;
     }
 
     public function hasNewVersion()
     {
         $myVer = $this->getVersionFromFile(__FILE__);
-        $gitVer = $this->getVersionFromFile($this->git);
-        if ($this->compareVersions($myVer, $gitVer) > 0) {
+        $gitVer = $this->getVersionFromFile($this->git . '?r=' . mt_rand());
+        if ($this->compareVersions($gitVer, $myVer) > 0) {
             return true;
         }
         return false;
