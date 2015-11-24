@@ -1,4 +1,7 @@
-<?php //// VERSION:1
+<?php //// VERSION:1.0.1
+
+error_reporting(E_ALL);
+ini_set('display_errors',1);
 
 # todo: updates
 # todo: payment methods
@@ -64,28 +67,93 @@ class FileInspector
 
 }
 
-class VersionDetector
+class Updater
 {
-    public static function getVersionFromFile($file)
+    public $git = '';
+
+    public function __construct($url)
+    {
+        $this->git = $url;
+    }
+
+    public function handleRoute()
+    {
+        if (isset($_GET['r']) and $_GET['r'] == 'update') {
+            print 'running update';
+            exit;
+        }
+    }
+
+    public function getUpdateUrl()
+    {
+        return $_SERVER['REQUEST_URI'] . '?r=update';
+    }
+
+    public function getVersionFromFile($file)
     {
         $fh = fopen($file, 'r');
         if (!$fh) {
             return 'unknown';
         }
         $line = fgets($fh);
-        close($fh);
+        fclose($fh);
         $tmp = explode(':', $line);
-        return $tmp[1];
+        return trim($tmp[1]);
+    }
+
+    public function compareVersions($v1, $v2)
+    {
+        $version1 = explode('.', $v1);
+        $version2 = explode('.', $v2);
+
+        $n = max(count($version1), count($version2));
+        for ($i = 0; $i < $n; $i++) {
+            if (@$version1[$i] > @$version2[$i]) {
+                return 1;
+            } elseif (@$version1[$i] < @$version2[$i]) {
+                return -1;
+            }
+            return 0;
+        }
+    }
+
+    public function hasNewVersion()
+    {
+        $myVer = $this->getVersionFromFile(__FILE__);
+        $gitVer = $this->getVersionFromFile($this->git);
+        if ($this->compareVersions($myVer, $gitVer) > 0) {
+            return true;
+        }
+        return false;
     }
 }
 
-$myVer = VersionDetector::getVersionFromFile(__FILE__);
-$gitVer = VersionDetector::getVersionFromFile('');
+
+$updater = new Updater('https://raw.githubusercontent.com/kostofffan/cleanup-after-dev/master/cleanup_after_dev.php');
+$updater->handleRoute();
 
 $inspector = new FileInspector();
 $inspector->inspectDirectory('./');
 
-print "error_reporting(E_ALL): " . htmlspecialchars(implode(', ', $inspector->errorReporting)) . "<br/>\n";
-print "ini_set('display_errors', 1): " . htmlspecialchars(implode(', ', $inspector->iniSet)) . "<br/>\n";
-print "var_dump(): " . htmlspecialchars(implode(', ', $inspector->varDump)) . "<br/>\n";
-print "print_r(): " . htmlspecialchars(implode(', ', $inspector->printR)) . "<br/>\n";
+?>
+<html>
+<head>
+    <title>Cleanup <?php print htmlspecialchars($_SERVER['SERVER_NAME']); ?> after developer</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css" integrity="sha512-dTfge/zgoMYpP7QbHy4gWMEGsbsdZeCXz7irItjcC3sPUFtf0kuFbDz/ixG7ArTxmDjLXDmezHubeNikyKGVyQ==" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap-theme.min.css" integrity="sha384-aUGj/X2zp5rLCbBxumKTCw2Z50WgIr1vs/PFN4praOTvYXWlVyh2UtNUU0KAUhAX" crossorigin="anonymous">
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js" integrity="sha512-K1qjQ+NcF2TYO/eI3M6v8EiNYZfA95pQumfvcVrTHtwQVDG+aHRqLi/ETn2uB+1JqwYqVG3LIvdm9lj6imS/pQ==" crossorigin="anonymous"></script>
+</head>
+<body>
+<div class="container">
+    <?php if ($updater->hasNewVersion()) { ?>
+        <p class="alert alert-danger">New version is available. Please <a href="<?php print htmlspecialchars($updater->getUpdateUrl()); ?>">update</a>.</p>
+    <?php } ?>
+    <?php
+    print "error_reporting(E_ALL): " . htmlspecialchars(implode(', ', $inspector->errorReporting)) . "<br/>\n";
+    print "ini_set('display_errors', 1): " . htmlspecialchars(implode(', ', $inspector->iniSet)) . "<br/>\n";
+    print "var_dump(): " . htmlspecialchars(implode(', ', $inspector->varDump)) . "<br/>\n";
+    print "print_r(): " . htmlspecialchars(implode(', ', $inspector->printR)) . "<br/>\n";
+    ?>
+</div>
+</body>
+</html>
